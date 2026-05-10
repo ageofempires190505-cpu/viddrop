@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VidDrop — Video İndirici</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080810;
+    --surface: #0f0f1a;
+    --border: rgba(255,255,255,0.07);
+    --accent: #7c6af7;
+    --accent2: #f76ac8;
+    --green: #22d67a;
+    --red: #f76a6a;
+    --text: #e8e8f0;
+    --muted: #555570;
+    --card: rgba(255,255,255,0.03);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    padding: 24px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 20%, rgba(124,106,247,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 35% at 80% 80%, rgba(247,106,200,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none; opacity: 0.5;
+  }
+
+  .container {
+    width: 100%; max-width: 540px;
+    position: relative; z-index: 1;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .header { text-align: center; margin-bottom: 36px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(124,106,247,0.1);
+    border: 1px solid rgba(124,106,247,0.25);
+    border-radius: 100px; padding: 5px 14px; margin-bottom: 18px;
+  }
+
+  .badge-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    animation: blink 2s ease infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .badge span { color: var(--accent); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(30px, 6vw, 42px);
+    font-weight: 800; line-height: 1.05;
+    letter-spacing: -1.5px;
+  }
+
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle { color: var(--muted); font-size: 12px; margin-top: 10px; letter-spacing: 0.5px; }
+
+  .platforms {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    justify-content: center; margin-bottom: 24px;
+  }
+
+  .pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 10px; color: var(--muted);
+    transition: all 0.2s; cursor: default;
+  }
+
+  .pill.active {
+    border-color: var(--pill-color);
+    background: color-mix(in srgb, var(--pill-color) 12%, transparent);
+    color: var(--pill-color);
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px; padding: 24px;
+    backdrop-filter: blur(16px);
+  }
+
+  .field { margin-bottom: 16px; }
+
+  .field-label {
+    display: block; font-size: 10px;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 7px;
+  }
+
+  .input-wrap { position: relative; }
+
+  .url-input {
+    width: 100%; padding: 12px 15px; padding-right: 110px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text); font-size: 13px;
+    font-family: inherit; outline: none;
+    transition: border 0.2s;
+  }
+
+  .url-input:focus { border-color: rgba(124,106,247,0.4); }
+  .url-input::placeholder { color: #333; }
+  .url-input:disabled { opacity: 0.5; }
+
+  .detect-badge {
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.5px; padding: 3px 8px;
+    border-radius: 6px; display: none;
+  }
+
+  .quality-grid { display: flex; gap: 7px; flex-wrap: wrap; }
+
+  .q-btn {
+    padding: 6px 13px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    font-size: 11px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+    transition: all 0.15s; letter-spacing: 0.5px;
+  }
+
+  .q-btn:hover { border-color: rgba(124,106,247,0.3); color: var(--accent); }
+
+  .q-btn.selected {
+    border-color: var(--accent);
+    background: rgba(124,106,247,0.12);
+    color: #a99fff;
+  }
+
+  .progress-wrap { margin-bottom: 16px; display: none; }
+
+  .progress-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .progress-label { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+  .progress-pct { font-size: 10px; color: var(--accent); }
+  .progress-speed { font-size: 10px; color: var(--muted); }
+
+  .progress-bar {
+    height: 3px; border-radius: 3px;
+    background: rgba(255,255,255,0.06); overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%; width: 0%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.3s ease;
+  }
+
+  .progress-fill.done { background: linear-gradient(90deg, var(--green), #16b060); }
+  .progress-fill.error { background: linear-gradient(90deg, var(--red), #c04040); }
+
+  .video-info {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 13px;
+    margin-bottom: 16px; display: none;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .vi-inner { display: flex; gap: 12px; align-items: center; }
+
+  .vi-thumb {
+    width: 52px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+    background: rgba(124,106,247,0.12);
+    overflow: hidden;
+  }
+
+  .vi-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+
+  .vi-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px; font-weight: 600;
+    color: var(--text); margin-bottom: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .vi-meta { display: flex; gap: 10px; flex-wrap: wrap; }
+  .vi-tag { font-size: 10px; color: var(--muted); }
+  .vi-tag span { color: var(--accent); }
+
+  .error-box {
+    background: rgba(247,106,106,0.06);
+    border: 1px solid rgba(247,106,106,0.2);
+    border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 16px; display: none;
+    font-size: 11px; color: #f7a0a0; line-height: 1.5;
+  }
+
+  .btn {
+    width: 100%; padding: 13px;
+    border: none; border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #9b6af7);
+    color: #fff;
+    box-shadow: 0 4px 24px rgba(124,106,247,0.25);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(124,106,247,0.35);
+  }
+
+  .btn-primary:disabled {
+    background: rgba(255,255,255,0.05);
+    color: #333; cursor: not-allowed; box-shadow: none;
+  }
+
+  .btn-download {
+    background: linear-gradient(135deg, var(--green), #16b060);
+    color: #fff;
+    box-shadow: 0 4px 24px rgba(34,214,122,0.25);
+  }
+
+  .btn-download:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(34,214,122,0.35);
+  }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    margin-top: 10px; font-size: 12px;
+  }
+
+  .btn-ghost:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+
+  .success-box {
+    text-align: center; padding: 18px;
+    background: rgba(34,214,122,0.06);
+    border: 1px solid rgba(34,214,122,0.2);
+    border-radius: 12px; margin-bottom: 14px;
+    display: none; animation: fadeUp 0.3s ease both;
+  }
+
+  .success-icon { font-size: 26px; margin-bottom: 6px; }
+
+  .success-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--green); letter-spacing: 1px;
+  }
+
+  .success-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  .server-status {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    margin-bottom: 16px; font-size: 10px;
+    color: var(--muted); letter-spacing: 0.5px;
+  }
+
+  .ss-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #333; flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .ss-dot.online { background: var(--green); animation: blink 2s infinite; }
+  .ss-dot.offline { background: var(--red); }
+
+  .footer {
+    text-align: center; margin-top: 20px;
+    font-size: 10px; color: #2a2a3a;
+    letter-spacing: 0.5px; line-height: 1.8;
+  }
+
+  .history { margin-top: 20px; }
+  .history-title { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .divider { height: 1px; background: var(--border); margin: 18px 0; }
+
+  .history-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card); margin-bottom: 6px;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .hi-icon { font-size: 15px; flex-shrink: 0; }
+  .hi-info { flex: 1; min-width: 0; }
+  .hi-name { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hi-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .hi-check { color: var(--green); font-size: 13px; flex-shrink: 0; }
+
+  .spinner {
+    display: inline-block; width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 7px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="badge">
+      <div class="badge-dot"></div>
+      <span>VidDrop v2.0</span>
+    </div>
+    <h1>Her platformdan<br><em>video indir</em></h1>
+    <p class="subtitle">YouTube · Instagram · TikTok · Twitter · Facebook · Vimeo</p>
+  </div>
+
+  <div class="platforms" id="platforms">
+    <div class="pill" data-platform="youtube"   style="--pill-color:#FF0000">▶ YouTube</div>
+    <div class="pill" data-platform="instagram" style="--pill-color:#E1306C">◈ Instagram</div>
+    <div class="pill" data-platform="tiktok"    style="--pill-color:#69C9D0">♪ TikTok</div>
+    <div class="pill" data-platform="twitter"   style="--pill-color:#1DA1F2">✦ Twitter/X</div>
+    <div class="pill" data-platform="facebook"  style="--pill-color:#4267B2">⬡ Facebook</div>
+    <div class="pill" data-platform="vimeo"     style="--pill-color:#1AB7EA">◉ Vimeo</div>
+  </div>
+
+  <div class="card">
+    <!-- Sunucu durumu -->
+    <div class="server-status">
+      <div class="ss-dot" id="ssDot"></div>
+      <span id="ssText">Sunucuya bağlanılıyor...</span>
+    </div>
+
+    <!-- URL -->
+    <div class="field">
+      <label class="field-label">Video URL</label>
+      <div class="input-wrap">
+        <input type="text" class="url-input" id="urlInput"
+          placeholder="https://youtube.com/watch?v=..."
+          oninput="onUrlChange()" />
+        <div class="detect-badge" id="detectBadge"></div>
+      </div>
+    </div>
+
+    <!-- Kalite -->
+    <div class="field">
+      <label class="field-label">Kalite</label>
+      <div class="quality-grid">
+        <button class="q-btn" onclick="selectQuality('4K')">4K</button>
+        <button class="q-btn selected" onclick="selectQuality('1080p')">1080p</button>
+        <button class="q-btn" onclick="selectQuality('720p')">720p</button>
+        <button class="q-btn" onclick="selectQuality('480p')">480p</button>
+        <button class="q-btn" onclick="selectQuality('360p')">360p</button>
+        <button class="q-btn" onclick="selectQuality('MP3')">🎵 MP3</button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-meta">
+        <span class="progress-label" id="progressLabel">Bağlanıyor</span>
+        <span>
+          <span class="progress-speed" id="progressSpeed"></span>
+          <span class="progress-pct" id="progressPct">0%</span>
+        </span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <!-- Hata -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Video bilgisi -->
+    <div class="video-info" id="videoInfo">
+      <div class="vi-inner">
+        <div class="vi-thumb" id="viThumb">▶</div>
+        <div style="flex:1;min-width:0">
+          <div class="vi-title" id="viTitle">—</div>
+          <div class="vi-meta">
+            <div class="vi-tag">⏱ <span id="viDur">—</span></div>
+            <div class="vi-tag">◆ <span id="viQual">—</span></div>
+            <div class="vi-tag" id="viUploaderWrap" style="display:none">👤 <span id="viUploader">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Başarı -->
+    <div class="success-box" id="successBox">
+      <div class="success-icon">✓</div>
+      <div class="success-title">İndirme Tamamlandı!</div>
+      <div class="success-sub" id="successSub">Dosya kaydedildi</div>
+    </div>
+
+    <!-- Ana buton -->
+    <button class="btn btn-primary" id="mainBtn" onclick="handleMain()" disabled>
+      Video Analiz Et
+    </button>
+    <button class="btn btn-ghost" id="resetBtn" onclick="resetAll()" style="display:none">
+      ↺ Yeni İndirme
+    </button>
+  </div>
+
+  <!-- Geçmiş -->
+  <div class="history" id="historySection" style="display:none">
+    <div class="divider"></div>
+    <div class="history-title">Son İndirmeler</div>
+    <div id="historyList"></div>
+  </div>
+
+  <div class="footer">
+    Sunucu: <span id="footerServer">http://localhost:5000</span><br>
+    Python Flask + yt-dlp · VidDrop 2.0
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:5000";
+
+let state = "idle";
+let selectedQuality = "1080p";
+let currentJobId = null;
+let pollTimer = null;
+let downloadHistory = [];
+let serverOnline = false;
+let currentVideoInfo = null;
+
+const platforms = {
+  "youtube.com": { name: "YouTube", icon: "▶", color: "#FF0000", key: "youtube" },
+  "youtu.be":    { name: "YouTube", icon: "▶", color: "#FF0000", key: "youtube" },
+  "instagram.com": { name: "Instagram", icon: "◈", color: "#E1306C", key: "instagram" },
+  "tiktok.com":    { name: "TikTok",    icon: "♪", color: "#69C9D0", key: "tiktok" },
+  "twitter.com":   { name: "Twitter/X", icon: "✦", color: "#1DA1F2", key: "twitter" },
+  "x.com":         { name: "Twitter/X", icon: "✦", color: "#1DA1F2", key: "twitter" },
+  "facebook.com":  { name: "Facebook",  icon: "⬡", color: "#4267B2", key: "facebook" },
+  "vimeo.com":     { name: "Vimeo",     icon: "◉", color: "#1AB7EA", key: "vimeo" },
+};
+
+// ── Sunucu kontrol ──────────────────────────────────────────
+async function checkServer() {
+  try {
+    const r = await fetch(API + "/health", { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      setServerStatus(true);
+      return true;
+    }
+  } catch {}
+  setServerStatus(false);
+  return false;
+}
+
+function setServerStatus(online) {
+  serverOnline = online;
+  const dot  = document.getElementById("ssDot");
+  const text = document.getElementById("ssText");
+  dot.className  = "ss-dot " + (online ? "online" : "offline");
+  text.textContent = online ? "Sunucu çevrimiçi — hazır" : "Sunucu çevrimdışı (server.py çalıştır)";
+
+  const btn = document.getElementById("mainBtn");
+  if (!online && state === "idle") {
+    btn.disabled = true;
+  }
+}
+
+checkServer();
+setInterval(checkServer, 10000);
+
+// ── Platform algılama ───────────────────────────────────────
+function detectPlatform(url) {
+  for (const [domain, info] of Object.entries(platforms)) {
+    if (url.includes(domain)) return info;
+  }
+  return null;
+}
+
+function onUrlChange() {
+  const url = document.getElementById("urlInput").value.trim();
+  const badge = document.getElementById("detectBadge");
+  const detected = detectPlatform(url);
+
+  document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+
+  if (detected) {
+    badge.style.display = "block";
+    badge.textContent = detected.name;
+    badge.style.background = detected.color + "22";
+    badge.style.color = detected.color;
+    badge.style.border = "1px solid " + detected.color + "55";
+    const pill = document.querySelector(`.pill[data-platform="${detected.key}"]`);
+    if (pill) pill.classList.add("active");
+  } else {
+    badge.style.display = "none";
+  }
+
+  const btn = document.getElementById("mainBtn");
+  if (state === "idle") {
+    btn.disabled = !url || !serverOnline;
+    btn.textContent = "Video Analiz Et";
+    btn.className = "btn btn-primary";
+  }
+
+  hideError();
+}
+
+function selectQuality(q) {
+  selectedQuality = q;
+  document.querySelectorAll(".q-btn").forEach(b => {
+    b.classList.toggle("selected", b.textContent.trim().includes(q));
+  });
+  if (state === "ready") {
+    document.getElementById("viQual").textContent = q;
+  }
+}
+
+// ── Ana akış ────────────────────────────────────────────────
+function handleMain() {
+  if (state === "idle") fetchInfo();
+  else if (state === "ready") startDownload();
+}
+
+async function fetchInfo() {
+  const url = document.getElementById("urlInput").value.trim();
+  if (!url) return;
+
+  state = "fetching";
+  setInputEnabled(false);
+  showProgress("Analiz Ediliyor", 0);
+  hideError();
+  setMainBtn("loading", "Analiz Ediliyor...");
+
+  // Fake progress (gerçek istek hızlı olabilir)
+  let fp = 0;
+  const fakeTimer = setInterval(() => {
+    fp = Math.min(fp + 15, 85);
+    setProgress(fp, "Analiz Ediliyor");
+  }, 200);
+
+  try {
+    const res = await fetch(API + "/info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+
+    clearInterval(fakeTimer);
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Analiz başarısız");
+    }
+
+    const info = await res.json();
+    currentVideoInfo = info;
+
+    setProgress(100, "Analiz Tamamlandı");
+
+    const detected = detectPlatform(url);
+    showVideoInfo(info, detected);
+
+    state = "ready";
+    setMainBtn("download", `↓ İndir — ${selectedQuality}`);
+
+  } catch (e) {
+    clearInterval(fakeTimer);
+    showError("⚠ Hata: " + e.message);
+    state = "idle";
+    setInputEnabled(true);
+    setMainBtn("primary", "Video Analiz Et");
+    hideProgress();
+  }
+}
+
+async function startDownload() {
+  const url = document.getElementById("urlInput").value.trim();
+  state = "downloading";
+  setMainBtn("loading", "İndiriliyor...");
+  showProgress("Başlatılıyor", 0);
+  hideError();
+
+  try {
+    const res = await fetch(API + "/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, quality: selectedQuality }),
+    });
+
+    if (!res.ok) throw new Error("İndirme başlatılamadı");
+
+    const { job_id } = await res.json();
+    currentJobId = job_id;
+    pollStatus(job_id);
+
+  } catch (e) {
+    showError("⚠ Hata: " + e.message);
+    state = "ready";
+    setMainBtn("download", `↓ İndir — ${selectedQuality}`);
+  }
+}
+
+function pollStatus(job_id) {
+  if (pollTimer) clearInterval(pollTimer);
+
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${API}/status/${job_id}`);
+      const job = await res.json();
+
+      if (job.status === "downloading") {
+        setProgress(job.progress, "İndiriliyor", false, job.speed || "");
+      } else if (job.status === "processing") {
+        setProgress(99, "İşleniyor...");
+      } else if (job.status === "done") {
+        clearInterval(pollTimer);
+        setProgress(100, "Tamamlandı", true);
+        onDownloadDone(job);
+      } else if (job.status === "error") {
+        clearInterval(pollTimer);
+        showError("⚠ İndirme hatası: " + job.error);
+        state = "ready";
+        setMainBtn("download", `↓ İndir — ${selectedQuality}`);
+        hideProgress();
+      }
+    } catch {
+      // Geçici bağlantı hatası, devam et
+    }
+  }, 800);
+}
+
+function onDownloadDone(job) {
+  state = "done";
+
+  // Dosyayı tarayıcıya indir
+  const link = document.createElement("a");
+  link.href = `${API}/file/${currentJobId}`;
+  link.click();
+
+  // Cleanup
+  fetch(`${API}/cleanup/${currentJobId}`, { method: "DELETE" }).catch(() => {});
+
+  // Başarı kutusu
+  const sBox = document.getElementById("successBox");
+  document.getElementById("successSub").textContent =
+    `${job.title || "Video"} · ${selectedQuality} · Kaydedildi ✓`;
+  sBox.style.display = "block";
+
+  document.getElementById("mainBtn").style.display = "none";
+  document.getElementById("resetBtn").style.display = "block";
+
+  // Geçmiş
+  const detected = detectPlatform(document.getElementById("urlInput").value);
+  addToHistory(job.title || "Video", detected?.icon || "▶", selectedQuality, detected?.color || "#7c6af7");
+}
+
+// ── UI Yardımcıları ─────────────────────────────────────────
+function setMainBtn(type, text) {
+  const btn = document.getElementById("mainBtn");
+  btn.style.display = "block";
+  btn.disabled = (type === "loading");
+  btn.innerHTML = type === "loading"
+    ? `<span class="spinner"></span>${text}`
+    : text;
+  btn.className = "btn " + (
+    type === "download" ? "btn-download" :
+    type === "loading"  ? "btn-primary"  : "btn-primary"
+  );
+}
+
+function setInputEnabled(enabled) {
+  document.getElementById("urlInput").disabled = !enabled;
+}
+
+function showProgress(label, pct, done = false, speed = "") {
+  document.getElementById("progressWrap").style.display = "block";
+  setProgress(pct, label, done, speed);
+}
+
+function hideProgress() {
+  document.getElementById("progressWrap").style.display = "none";
+}
+
+function setProgress(pct, label, done = false, speed = "") {
+  const fill = document.getElementById("progressFill");
+  fill.style.width = pct + "%";
+  fill.className = "progress-fill" + (done ? " done" : "");
+  document.getElementById("progressPct").textContent = Math.round(pct) + "%";
+  if (label) document.getElementById("progressLabel").textContent = label;
+  document.getElementById("progressSpeed").textContent = speed ? speed + " · " : "";
+}
+
+function showVideoInfo(info, detected) {
+  const box = document.getElementById("videoInfo");
+  const thumb = document.getElementById("viThumb");
+
+  if (info.thumbnail) {
+    thumb.innerHTML = `<img src="${info.thumbnail}" alt="">`;
+  } else {
+    thumb.textContent = detected?.icon || "▶";
+    thumb.style.color = detected?.color || "#7c6af7";
+    thumb.style.background = (detected?.color || "#7c6af7") + "22";
+  }
+
+  document.getElementById("viTitle").textContent = info.title || "—";
+  document.getElementById("viDur").textContent = info.duration || "—";
+  document.getElementById("viQual").textContent = selectedQuality;
+
+  if (info.uploader) {
+    document.getElementById("viUploader").textContent = info.uploader;
+    document.getElementById("viUploaderWrap").style.display = "block";
+  }
+
+  box.style.display = "block";
+}
+
+function showError(msg) {
+  const box = document.getElementById("errorBox");
+  box.textContent = msg;
+  box.style.display = "block";
+}
+
+function hideError() {
+  document.getElementById("errorBox").style.display = "none";
+}
+
+function addToHistory(title, icon, quality, color) {
+  downloadHistory.unshift({ title, icon, quality, color });
+  if (downloadHistory.length > 5) downloadHistory.pop();
+
+  const section = document.getElementById("historySection");
+  const list = document.getElementById("historyList");
+  section.style.display = "block";
+  list.innerHTML = "";
+
+  downloadHistory.forEach(item => {
+    const el = document.createElement("div");
+    el.className = "history-item";
+    el.innerHTML = `
+      <div class="hi-icon" style="color:${item.color}">${item.icon}</div>
+      <div class="hi-info">
+        <div class="hi-name">${item.title}</div>
+        <div class="hi-meta">${item.quality} · Az önce indirildi</div>
+      </div>
+      <div class="hi-check">✓</div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function resetAll() {
+  if (pollTimer) clearInterval(pollTimer);
+  state = "idle";
+  currentJobId = null;
+  currentVideoInfo = null;
+
+  document.getElementById("urlInput").value = "";
+  document.getElementById("urlInput").disabled = false;
+  document.getElementById("detectBadge").style.display = "none";
+  document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+
+  hideProgress();
+  hideError();
+  document.getElementById("videoInfo").style.display = "none";
+  document.getElementById("successBox").style.display = "none";
+  document.getElementById("resetBtn").style.display = "none";
+
+  setMainBtn("primary", "Video Analiz Et");
+  document.getElementById("mainBtn").disabled = true;
+}
+
+// Enter + paste
+document.getElementById("urlInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !document.getElementById("mainBtn").disabled) handleMain();
+});
+document.getElementById("urlInput").addEventListener("paste", () => setTimeout(onUrlChange, 10));
+</script>
+</body>
+</html>
